@@ -1,81 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Image Slideshow</title>
-        <style>
-            body {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background-color: #000;
-                position: relative; /* Ensure the position context for absolute positioning */
-            }
-            img {
-                max-width: 100%;
-                max-height: 100%;
-            }
-            .stop-btn {
-                position: absolute;
-                bottom: 20px;
-                right: 20px;
-                padding: 10px 20px;
-                font-size: 16px;
-                background-color: #dc3545; /* Red color */
-                color: #fff;
-                border: none;
-                cursor: pointer;
-            }
-        </style>
-    </head>
-    <body>
-        <img id="latestImage" src="" alt="Latest Image">
-        <button id="stopServerBtn" class="stop-btn">Stop Server and Close Tab</button>
-        <script>
-            document.getElementById('stopServerBtn').addEventListener('click', async () => {
-                try {
-                    const response = await fetch('/stopServer');
-                    if (response.ok) {
-                        console.log('Server stopped successfully.');
-                        window.close(); // Close the browser tab
-                    } else {
-                        console.error('Failed to stop server:', response.status);
-                    }
-                } catch (error) {
-                    console.error('Error stopping server:', error);
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Slideshow</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #000;
+            position: relative;
+        }
+        img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .controlsLeft {
+            display: flex;
+            flex-direction: column;
+            justify-content: right;
+            align-items: center;
+            padding: 20px
+            margin-top: 20px;
+        }
+        .controlsRight {
+            display: flex;
+            flex-direction: column;
+            justify-content: right;
+            align-items: center;
+            padding: 20px
+            margin-top: 20px;
+        }
+        .controlsLeft button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 24px;
+        }
+        .controlsRight button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 24px;
+        }
+        .latest-active {
+            border: 6px solid green;
+        }
+        .stop-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="controlsLeft">
+    <button id="latestBtn">Latest</button>
+    <button id="prevBtn">Next</button>
+    </div>
+    <img id="latestImage" src="" alt="Latest Image">
+    <div class="controlsRight">
+    <button id="nextBtn">Previous</button>
+    </div>
+    <button id="stopServerBtn" class="stop-btn">Stop Server</button>
+    <script>
+        let currentIndex = -1;
+        let images = [];
+        let intervalId = null;
+        const IMAGE_LIST_UPDATE_INTERVAL = 500; // every half second
+
+        document.getElementById('stopServerBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/stopServer');
+                if (response.ok) {
+                    console.log('Server stopped successfully.');
+                    window.close();
+                } else {
+                    console.error('Failed to stop server:', response.status);
                 }
-            });
+            } catch (error) {
+                console.error('Error stopping server:', error);
+            }
+        });
 
-            const fetchLatestImage = async () => {
-                try {
-                    const response = await fetch('latestImage');
-                    if (response.ok) {
-                        const imageUrl = await response.text();
-                        const img = new Image();
-                        img.onload = () => {
-                            document.getElementById('latestImage').src = imageUrl;
-                        };
-                        img.onerror = (e) => {
-                            console.error('Error loading image:', e);
-                            // Handle error (e.g., retrying or displaying a placeholder)
-                        };
-                        img.src = imageUrl; // Start loading the image
-                    } else {
-                        console.error('Fetch error:', response.status);
-                        // Handle fetch error
-                    }
-                } catch (error) {
-                    console.error('Error fetching latest image:', error);
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadImage(images[currentIndex]);
+                stopAutoRefresh();
+            }
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentIndex < images.length - 1) {
+                currentIndex++;
+                loadImage(images[currentIndex]);
+                stopAutoRefresh();
+            }
+        });
+
+        document.getElementById('latestBtn').addEventListener('click', () => {
+            startAutoRefresh();
+        });
+
+        const fetchLatestImage = async () => {
+            try {
+                const response = await fetch('/latestImage');
+                if (response.ok) {
+                    const imageUrl = await response.text();
+                    document.getElementById('latestImage').src = imageUrl;
+                } else {
+                    console.error('Failed to fetch latest image:', response.status);
                 }
-            };
+            } catch (error) {
+                console.error('Error fetching latest image:', error);
+            }
+        };
 
+        const fetchImageList = async () => {
+            try {
+                const response = await fetch('/imageList');
+                if (response.ok) {
+                    images = await response.json();
+                    if (currentIndex >= images.length) {
+                        currentIndex = images.length - 1;
+                    }
+                } else {
+                    console.error('Failed to fetch image list:', response.status);
+                }
+            } catch (error) {
+                console.error('Error fetching image list:', error);
+            }
+        };
 
-            setInterval(fetchLatestImage, 5000); // Fetch the latest image every 5 seconds
-            fetchLatestImage(); // Initial fetch
-        </script>
-    </body>
+        const loadImage = (imageName) => {
+            document.getElementById('latestImage').src = `/getImage=${imageName}`;
+        };
+
+        const startAutoRefresh = () => {
+            if (intervalId) clearInterval(intervalId);
+            intervalId = setInterval(fetchLatestImage, 2000);
+            fetchLatestImage();
+            document.getElementById('latestBtn').classList.add('latest-active');
+        };
+
+        const stopAutoRefresh = () => {
+            if (intervalId) clearInterval(intervalId);
+            document.getElementById('latestBtn').classList.remove('latest-active');
+        };
+
+        const startImageListUpdate = () => {
+            setInterval(fetchImageList, IMAGE_LIST_UPDATE_INTERVAL);
+        };
+
+        fetchImageList();
+        startImageListUpdate();
+        startAutoRefresh();
+    </script>
+</body>
 </html>
 

@@ -3,6 +3,7 @@ import signal
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import threading
 import webbrowser
+import json
 
 class LatestImageHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -16,13 +17,30 @@ class LatestImageHandler(SimpleHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
+        elif self.path == '/imageList':
+            images = self.get_image_list()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(images).encode())
+        elif self.path.startswith('/getImage'):
+            image_name = self.path.split('=')[1]
+            if os.path.exists(image_name):
+                self.send_response(200)
+                self.send_header('Content-type', 'image/jpeg')
+                self.end_headers()
+                with open(image_name, 'rb') as file:
+                    self.wfile.write(file.read())
+            else:
+                self.send_response(404)
+                self.end_headers()
         elif self.path == '/stopServer':
             self.send_response(200)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
             threading.Thread(target=stop_server).start()
         else:
-            super().do_GET()  # Serve files as usual
+            super().do_GET()
 
     def get_latest_image(self):
         images = [f for f in os.listdir('.') if os.path.isfile(f) and f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -30,6 +48,11 @@ class LatestImageHandler(SimpleHTTPRequestHandler):
             return None
         latest_image = max(images, key=os.path.getmtime)
         return latest_image
+
+    def get_image_list(self):
+        images = [f for f in os.listdir('.') if os.path.isfile(f) and f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        images.sort(key=os.path.getmtime, reverse=True)
+        return images
 
 def run(server_class=HTTPServer, handler_class=LatestImageHandler, port=8000):
     server_address = ('', port)
