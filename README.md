@@ -7,3 +7,5 @@ The ```latest_image_server.py``` and ```index.html``` files are placed in the ou
 ## Use
 ### Requires Python 3 to use, and a browser that supports javascript
 Place the files from the repository directly into your outputs folder (e.g. stable-diffusion-webui/outputs/[date] or ComfyUI/outputs) and then run the server by using ```python latest_image_server.py``` or try the batch file or bash script for your distribution. A browser window should open automatically, if it doesn't, simply navigate a browser to ```http://localhost:8000``` or ```http://127.0.0.1:8000``` once the server is running. Pressing the 'Stop Server' button will close the browser tab and stop the servers execution for you.
+
+### update 7/16 now has next/previous controls and a button to return to auto refresh mode. Doesn't work that great.
